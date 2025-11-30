@@ -6,6 +6,7 @@ interface YtNavSettingsType {
   enableDoubleEsc: boolean;
   enableNumberKeys: boolean;
   enableScrollKeys: boolean;
+  showBadges: boolean;
   highlightColor: string;
   highlightStyle: HighlightStyle;
 }
@@ -16,6 +17,7 @@ const storage = createStorage<YtNavSettingsType>(
     enableDoubleEsc: true,
     enableNumberKeys: true,
     enableScrollKeys: true,
+    showBadges: true,
     highlightColor: '#FF0000', // Default YouTube red
     highlightStyle: 'gradient-bottom',
   },
@@ -41,6 +43,9 @@ const ytNavStorage = {
   },
   setHighlightStyle: async (style: HighlightStyle) => {
     await storage.set(current => ({ ...current, highlightStyle: style }));
+  },
+  setShowBadges: async (show: boolean) => {
+    await storage.set(current => ({ ...current, showBadges: show }));
   },
 };
 

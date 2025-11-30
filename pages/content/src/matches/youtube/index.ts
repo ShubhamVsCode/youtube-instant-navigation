@@ -14,6 +14,7 @@ interface YtNavSettings {
   enableDoubleEsc: boolean;
   enableNumberKeys: boolean;
   enableScrollKeys: boolean;
+  showBadges: boolean;
   highlightColor: string;
   highlightStyle: HighlightStyle;
 }
@@ -23,6 +24,7 @@ const DEFAULT_SETTINGS: YtNavSettings = {
   enableDoubleEsc: true,
   enableNumberKeys: true,
   enableScrollKeys: true,
+  showBadges: true,
   highlightColor: '#FF0000',
   highlightStyle: 'gradient-bottom',
 };
@@ -61,16 +63,30 @@ const getHighlightStyles = (color: string, styleType: HighlightStyle): string =>
       position: absolute;
       top: 8px;
       left: 8px;
-      background: ${hexToRgba(color, 0.95)};
-      color: #1a1a1a;
-      font-size: 14px;
-      font-weight: bold;
-      padding: 4px 8px;
-      border-radius: 4px;
-      z-index: 9999;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      z-index: 10;
       pointer-events: none;
-      font-family: 'YouTube Sans', 'Roboto', sans-serif;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      opacity: 0.85;
+      transition: opacity 0.15s ease, transform 0.15s ease, background 0.15s ease;
+    }
+    .yt-nav-number-badge:hover {
+      opacity: 1;
+    }
+    .yt-nav-number-badge.yt-nav-badge-selected {
+      background: ${color};
+      color: #fff;
+      opacity: 1;
+      border-color: ${color};
+      box-shadow: 0 0 8px ${hexToRgba(color, 0.5)}, 0 1px 3px rgba(0, 0, 0, 0.4);
+      transform: scale(1.1);
     }`;
 
   let highlightEffect = '';
@@ -226,6 +242,8 @@ const setupSettingsListener = (): void => {
     if (areaName === 'local' && changes['yt-nav-settings']) {
       settings = { ...DEFAULT_SETTINGS, ...changes['yt-nav-settings'].newValue };
       updateStyles();
+      // Refresh badges when settings change
+      showNumberBadges();
     }
   });
 };
@@ -296,6 +314,51 @@ const getVisibleVideos = (): HTMLElement[] => {
   return visibleVideos.slice(0, 9);
 };
 
+// Show number badges on visible videos
+const showNumberBadges = () => {
+  // Remove all existing badges first
+  document.querySelectorAll('.yt-nav-number-badge').forEach(el => el.remove());
+
+  // Don't show badges if badges are disabled
+  if (!settings.showBadges) return;
+
+  const videos = getVisibleVideos();
+  videos.forEach((video, index) => {
+    const badge = document.createElement('div');
+    badge.className = 'yt-nav-number-badge';
+    badge.textContent = String(index + 1);
+
+    // Add selected class if this is the highlighted video
+    if (highlightedElement === video) {
+      badge.classList.add('yt-nav-badge-selected');
+    }
+
+    // Find the thumbnail container to append the badge to
+    const thumbnail = video.querySelector('ytd-thumbnail, #thumbnail, .ytd-thumbnail') as HTMLElement;
+    const targetElement = thumbnail || video;
+
+    // Make target position relative if not already positioned
+    const computedStyle = window.getComputedStyle(targetElement);
+    if (computedStyle.position === 'static') {
+      targetElement.style.position = 'relative';
+    }
+
+    targetElement.appendChild(badge);
+  });
+};
+
+// Update badge selection state
+const updateBadgeSelection = () => {
+  document.querySelectorAll('.yt-nav-number-badge').forEach((badge, index) => {
+    const videos = getVisibleVideos();
+    if (videos[index] === highlightedElement) {
+      badge.classList.add('yt-nav-badge-selected');
+    } else {
+      badge.classList.remove('yt-nav-badge-selected');
+    }
+  });
+};
+
 // Clear any existing highlight
 const clearHighlight = (immediate = false) => {
   if (highlightedElement) {
@@ -319,8 +382,8 @@ const clearHighlight = (immediate = false) => {
   selectedVideoIndex = null;
   lastKeyPressed = null;
 
-  // Remove all number badges
-  document.querySelectorAll('.yt-nav-number-badge').forEach(el => el.remove());
+  // Update badge selection state
+  updateBadgeSelection();
 };
 
 // Highlight a video element
@@ -336,6 +399,7 @@ const highlightVideo = (video: HTMLElement, index: number) => {
       video.style.setProperty('--highlight-opacity', '1');
       highlightedElement = video;
       selectedVideoIndex = index;
+      updateBadgeSelection();
     }, 200);
   } else {
     // No previous highlight, add with fade-in
@@ -343,6 +407,7 @@ const highlightVideo = (video: HTMLElement, index: number) => {
     video.style.setProperty('--highlight-opacity', '1');
     highlightedElement = video;
     selectedVideoIndex = index;
+    updateBadgeSelection();
   }
 
   // Don't scroll for top 3 videos (index 0, 1, 2 = videos 1, 2, 3)
@@ -367,6 +432,9 @@ const highlightVideo = (video: HTMLElement, index: number) => {
 
 // Open/click the video
 const openVideo = (video: HTMLElement) => {
+  // Remove all badges immediately when opening (navigating away)
+  document.querySelectorAll('.yt-nav-number-badge').forEach(el => el.remove());
+
   // Find the clickable link within the video element
   const link = video.querySelector(
     'a#video-title-link, a#thumbnail, a.ytd-thumbnail, ytd-thumbnail a, a[href*="/watch"]',
@@ -480,18 +548,69 @@ const handleNumberKey = (num: number) => {
   lastKeyPressed = keyStr;
 };
 
-// Handle scroll keys
-const handleScrollKey = (direction: 'up' | 'down') => {
-  if (!settings.enableScrollKeys) return;
+// Scroll state for acceleration
+let scrollAnimationFrame: number | null = null;
+let scrollStartTime = 0;
+let currentScrollDirection: 'up' | 'down' | null = null;
+let lastScrollTime = 0;
 
-  // Clear selection immediately when scrolling
+// Handle scroll keys with smooth acceleration
+const startScrolling = (direction: 'up' | 'down') => {
+  if (!settings.enableScrollKeys) return;
+  if (currentScrollDirection === direction) return; // Already scrolling this direction
+
+  // Stop any existing scroll
+  stopScrolling();
+
+  currentScrollDirection = direction;
+  scrollStartTime = Date.now();
+  lastScrollTime = Date.now();
+
+  // Clear selection when starting to scroll
   clearHighlight(true);
 
-  const scrollAmount = window.innerHeight * 0.7;
-  window.scrollBy({
-    top: direction === 'down' ? scrollAmount : -scrollAmount,
-    behavior: 'smooth',
-  });
+  // Start smooth scroll animation
+  const animateScroll = () => {
+    if (!currentScrollDirection) return;
+
+    const now = Date.now();
+    const deltaTime = now - lastScrollTime;
+    lastScrollTime = now;
+
+    const holdDuration = now - scrollStartTime;
+
+    // Accelerate based on hold duration
+    // Start at 8px/frame, max at 35px/frame after 1 second
+    const baseSpeed = 8;
+    const maxSpeed = 35;
+    const accelerationTime = 1000;
+
+    const acceleration = Math.min(holdDuration / accelerationTime, 1);
+    // Ease-out acceleration curve
+    const easedAcceleration = 1 - Math.pow(1 - acceleration, 2);
+    const speed = baseSpeed + (maxSpeed - baseSpeed) * easedAcceleration;
+
+    // Scale by delta time for consistent speed
+    const scrollAmount = speed * (deltaTime / 16);
+
+    window.scrollBy({
+      top: currentScrollDirection === 'down' ? scrollAmount : -scrollAmount,
+      behavior: 'auto',
+    });
+
+    scrollAnimationFrame = requestAnimationFrame(animateScroll);
+  };
+
+  scrollAnimationFrame = requestAnimationFrame(animateScroll);
+};
+
+const stopScrolling = () => {
+  if (scrollAnimationFrame) {
+    cancelAnimationFrame(scrollAnimationFrame);
+    scrollAnimationFrame = null;
+  }
+  currentScrollDirection = null;
+  scrollStartTime = 0;
 };
 
 // Main keydown handler
@@ -525,13 +644,13 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
     case 'j':
     case 'J':
-      handleScrollKey('down');
+      startScrolling('down');
       event.preventDefault();
       break;
 
     case 'k':
     case 'K':
-      handleScrollKey('up');
+      startScrolling('up');
       event.preventDefault();
       break;
   }
@@ -550,7 +669,23 @@ const init = async () => {
   // Add event listeners
   document.addEventListener('keydown', handleKeyDown);
 
-  // Clear highlight when scrolling (debounced)
+  // Stop scrolling when key is released
+  document.addEventListener('keyup', event => {
+    const key = event.key.toLowerCase();
+    if (key === 'j' || key === 'k') {
+      stopScrolling();
+    }
+  });
+
+  // Also stop scrolling if window loses focus
+  window.addEventListener('blur', stopScrolling);
+
+  // Show badges initially (with a small delay for page to settle)
+  setTimeout(() => {
+    showNumberBadges();
+  }, 500);
+
+  // Update badges and clear highlight when scrolling (debounced)
   let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
   const handleScroll = () => {
     if (scrollTimeout) {
@@ -561,7 +696,9 @@ const init = async () => {
       if (highlightedElement) {
         clearHighlight(true);
       }
-    }, 100);
+      // Refresh badges for new visible videos
+      showNumberBadges();
+    }, 150);
   };
   window.addEventListener('scroll', handleScroll, { passive: true });
 
@@ -571,6 +708,34 @@ const init = async () => {
       clearHighlight(false); // Smooth fade-out
     }
   });
+
+  // Watch for new videos being added (YouTube uses dynamic loading)
+  let mutationTimeout: ReturnType<typeof setTimeout> | null = null;
+  const observer = new MutationObserver(() => {
+    if (mutationTimeout) {
+      clearTimeout(mutationTimeout);
+    }
+    mutationTimeout = setTimeout(() => {
+      showNumberBadges();
+    }, 300);
+  });
+
+  // Observe the main content area for changes
+  const startObserving = () => {
+    const contentContainer = document.querySelector(
+      'ytd-app, #content, ytd-browse, ytd-two-column-browse-results-renderer',
+    );
+    if (contentContainer) {
+      observer.observe(contentContainer, {
+        childList: true,
+        subtree: true,
+      });
+    } else {
+      // Retry if container not found yet
+      setTimeout(startObserving, 500);
+    }
+  };
+  startObserving();
 };
 
 // Run initialization
