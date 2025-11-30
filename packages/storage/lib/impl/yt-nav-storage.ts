@@ -16,7 +16,7 @@ const storage = createStorage<YtNavSettingsType>(
     enableDoubleEsc: true,
     enableNumberKeys: true,
     enableScrollKeys: true,
-    highlightColor: '#d4a853', // Default golden color
+    highlightColor: '#FF0000', // Default YouTube red
     highlightStyle: 'gradient-bottom',
   },
   {

@@ -23,7 +23,7 @@ const DEFAULT_SETTINGS: YtNavSettings = {
   enableDoubleEsc: true,
   enableNumberKeys: true,
   enableScrollKeys: true,
-  highlightColor: '#d4a853',
+  highlightColor: '#FF0000',
   highlightStyle: 'gradient-bottom',
 };
 
@@ -54,7 +54,6 @@ const getHighlightStyles = (color: string, styleType: HighlightStyle): string =>
     .${HIGHLIGHT_CLASS} {
       position: relative !important;
       border-radius: 12px !important;
-      transition: all 0.2s ease !important;
     }`;
 
   const badgeStyles = `
@@ -92,6 +91,17 @@ const getHighlightStyles = (color: string, styleType: HighlightStyle): string =>
       mask-composite: exclude !important;
       pointer-events: none !important;
       box-shadow: 0 8px 20px ${hexToRgba(color, 0.4)}, 0 12px 32px ${hexToRgba(color, 0.2)} !important;
+      opacity: var(--highlight-opacity, 1) !important;
+      transition: opacity 0.1s ease-out, box-shadow 0.1s ease-out !important;
+      animation: yt-nav-border-fade-in 0.1s ease-out !important;
+    }
+    @keyframes yt-nav-border-fade-in {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: var(--highlight-opacity, 1);
+      }
     }`;
       break;
 
@@ -110,6 +120,17 @@ const getHighlightStyles = (color: string, styleType: HighlightStyle): string =>
       mask-composite: exclude !important;
       pointer-events: none !important;
       box-shadow: 0 -8px 20px ${hexToRgba(color, 0.4)}, 0 -12px 32px ${hexToRgba(color, 0.2)} !important;
+      opacity: var(--highlight-opacity, 1) !important;
+      transition: opacity 0.1s ease-out, box-shadow 0.1s ease-out !important;
+      animation: yt-nav-border-fade-in 0.1s ease-out !important;
+    }
+    @keyframes yt-nav-border-fade-in {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: var(--highlight-opacity, 1);
+      }
     }`;
       break;
 
@@ -127,6 +148,17 @@ const getHighlightStyles = (color: string, styleType: HighlightStyle): string =>
       -webkit-mask-composite: xor !important;
       mask-composite: exclude !important;
       pointer-events: none !important;
+      opacity: var(--highlight-opacity, 1) !important;
+      transition: opacity 0.1s ease-out !important;
+      animation: yt-nav-border-fade-in 0.1s ease-out !important;
+    }
+    @keyframes yt-nav-border-fade-in {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: var(--highlight-opacity, 1);
+      }
     }`;
       break;
 
@@ -140,11 +172,21 @@ const getHighlightStyles = (color: string, styleType: HighlightStyle): string =>
       background: ${hexToRgba(color, 0.15)} !important;
       box-shadow: 0 0 20px ${hexToRgba(color, 0.6)}, 0 0 40px ${hexToRgba(color, 0.4)}, 0 0 60px ${hexToRgba(color, 0.2)}, inset 0 0 20px ${hexToRgba(color, 0.1)} !important;
       pointer-events: none !important;
-      animation: yt-nav-glow-pulse 2s ease-in-out infinite !important;
+      opacity: var(--highlight-opacity, 1) !important;
+      transition: opacity 0.1s ease-out, box-shadow 0.1s ease-out !important;
+      animation: yt-nav-border-fade-in 0.1s ease-out, yt-nav-glow-pulse 2s ease-in-out infinite 0.1s !important;
+    }
+    @keyframes yt-nav-border-fade-in {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: var(--highlight-opacity, 1);
+      }
     }
     @keyframes yt-nav-glow-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
+      0%, 100% { opacity: var(--highlight-opacity, 1); }
+      50% { opacity: calc(var(--highlight-opacity, 1) * 0.7); }
     }`;
       break;
   }
@@ -255,10 +297,24 @@ const getVisibleVideos = (): HTMLElement[] => {
 };
 
 // Clear any existing highlight
-const clearHighlight = () => {
+const clearHighlight = (immediate = false) => {
   if (highlightedElement) {
-    highlightedElement.classList.remove(HIGHLIGHT_CLASS);
-    highlightedElement = null;
+    if (immediate) {
+      highlightedElement.classList.remove(HIGHLIGHT_CLASS);
+      highlightedElement = null;
+    } else {
+      // Add fade-out animation to the border only
+      // Use opacity on the highlight class itself for smooth fade
+      highlightedElement.style.setProperty('--highlight-opacity', '0');
+
+      setTimeout(() => {
+        if (highlightedElement) {
+          highlightedElement.classList.remove(HIGHLIGHT_CLASS);
+          highlightedElement.style.removeProperty('--highlight-opacity');
+          highlightedElement = null;
+        }
+      }, 200);
+    }
   }
   selectedVideoIndex = null;
   lastKeyPressed = null;
@@ -269,14 +325,44 @@ const clearHighlight = () => {
 
 // Highlight a video element
 const highlightVideo = (video: HTMLElement, index: number) => {
-  clearHighlight();
+  const hadPreviousHighlight = highlightedElement !== null;
 
-  video.classList.add(HIGHLIGHT_CLASS);
-  highlightedElement = video;
-  selectedVideoIndex = index;
+  if (hadPreviousHighlight) {
+    // Fade out previous highlight first
+    clearHighlight(false);
+    // Wait for fade-out to complete before adding new highlight
+    setTimeout(() => {
+      video.classList.add(HIGHLIGHT_CLASS);
+      video.style.setProperty('--highlight-opacity', '1');
+      highlightedElement = video;
+      selectedVideoIndex = index;
+    }, 200);
+  } else {
+    // No previous highlight, add with fade-in
+    video.classList.add(HIGHLIGHT_CLASS);
+    video.style.setProperty('--highlight-opacity', '1');
+    highlightedElement = video;
+    selectedVideoIndex = index;
+  }
 
-  // Scroll into view if needed
-  video.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Don't scroll for top 3 videos (index 0, 1, 2 = videos 1, 2, 3)
+  // Only scroll for videos 4-9 (index 3-8)
+  if (index >= 3) {
+    // Scroll into view if needed, but only if video is not already well-visible
+    const rect = video.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    // Check if video is already well-visible (at least 50% visible)
+    const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+    const visibleWidth = Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0);
+    const visibleRatio = (visibleHeight * visibleWidth) / (rect.height * rect.width);
+
+    // Only scroll if less than 50% visible
+    if (visibleRatio < 0.5) {
+      video.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
 };
 
 // Open/click the video
@@ -293,7 +379,7 @@ const openVideo = (video: HTMLElement) => {
     video.click();
   }
 
-  clearHighlight();
+  clearHighlight(true); // Immediate clear when opening
 };
 
 // Navigate to YouTube homepage
@@ -314,7 +400,7 @@ const goToHomepage = () => {
 const handleEscKey = () => {
   // If we have a selected video, first ESC clears it
   if (selectedVideoIndex !== null) {
-    clearHighlight();
+    clearHighlight(false); // Smooth fade-out
     return;
   }
 
@@ -332,12 +418,55 @@ const handleEscKey = () => {
   }
 };
 
+// Check if an element is still visible in viewport
+const isElementInViewport = (element: HTMLElement): boolean => {
+  if (!element || !document.body.contains(element)) {
+    return false;
+  }
+
+  const rect = element.getBoundingClientRect();
+  const viewportHeight = window.innerHeight;
+  const viewportWidth = window.innerWidth;
+
+  // Check if element is at least partially visible
+  const isVerticallyVisible = rect.top < viewportHeight && rect.bottom > 0;
+  const isHorizontallyVisible = rect.left < viewportWidth && rect.right > 0;
+
+  if (!isVerticallyVisible || !isHorizontallyVisible) {
+    return false;
+  }
+
+  // Require at least 30% of the element to be visible
+  const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
+  const visibleRatio = visibleHeight / rect.height;
+
+  return visibleRatio > 0.3;
+};
+
 // Handle number key press
 const handleNumberKey = (num: number) => {
   if (!settings.enableNumberKeys) return;
 
-  const videos = getVisibleVideos();
+  const keyStr = String(num);
   const videoIndex = num - 1; // Convert 1-9 to 0-8
+
+  // Two-press pattern
+  if (lastKeyPressed === keyStr && highlightedElement !== null) {
+    // Check if the highlighted element is still in viewport
+    if (isElementInViewport(highlightedElement) && selectedVideoIndex === videoIndex) {
+      // Second press - open the already highlighted video
+      openVideo(highlightedElement);
+      return;
+    } else {
+      // Highlighted element is no longer in viewport or index changed
+      // Recalculate and select the current video at this position
+      clearHighlight(true);
+      lastKeyPressed = null;
+    }
+  }
+
+  // First press or recalculation - get videos and highlight
+  const videos = getVisibleVideos();
 
   if (videoIndex >= videos.length) {
     // No video at this position
@@ -345,31 +474,24 @@ const handleNumberKey = (num: number) => {
   }
 
   const video = videos[videoIndex];
-  const keyStr = String(num);
 
-  // Two-press pattern
-  if (lastKeyPressed === keyStr && selectedVideoIndex === videoIndex) {
-    // Second press - open the video
-    openVideo(video);
-  } else {
-    // First press - highlight the video
-    highlightVideo(video, videoIndex);
-    lastKeyPressed = keyStr;
-  }
+  // Highlight the video
+  highlightVideo(video, videoIndex);
+  lastKeyPressed = keyStr;
 };
 
 // Handle scroll keys
 const handleScrollKey = (direction: 'up' | 'down') => {
   if (!settings.enableScrollKeys) return;
 
+  // Clear selection immediately when scrolling
+  clearHighlight(true);
+
   const scrollAmount = window.innerHeight * 0.7;
   window.scrollBy({
     top: direction === 'down' ? scrollAmount : -scrollAmount,
     behavior: 'smooth',
   });
-
-  // Clear selection when scrolling
-  clearHighlight();
 };
 
 // Main keydown handler
@@ -428,10 +550,25 @@ const init = async () => {
   // Add event listeners
   document.addEventListener('keydown', handleKeyDown);
 
+  // Clear highlight when scrolling (debounced)
+  let scrollTimeout: ReturnType<typeof setTimeout> | null = null;
+  const handleScroll = () => {
+    if (scrollTimeout) {
+      clearTimeout(scrollTimeout);
+    }
+    scrollTimeout = setTimeout(() => {
+      // Clear selection after scroll settles
+      if (highlightedElement) {
+        clearHighlight(true);
+      }
+    }, 100);
+  };
+  window.addEventListener('scroll', handleScroll, { passive: true });
+
   // Clear highlight when clicking elsewhere
   document.addEventListener('click', e => {
     if (highlightedElement && !highlightedElement.contains(e.target as Node)) {
-      clearHighlight();
+      clearHighlight(false); // Smooth fade-out
     }
   });
 };

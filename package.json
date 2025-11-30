@@ -1,14 +1,23 @@
 {
-  "name": "chrome-extension-boilerplate-react-vite",
-  "version": "0.5.0",
-  "description": "chrome extension boilerplate",
+  "name": "youtube-instant-navigation",
+  "version": "1.0.0",
+  "description": "Chrome extension for YouTube with keyboard shortcuts: double-ESC for home, number keys to select videos, J/K to scroll",
   "license": "MIT",
-  "private": true,
+  "private": false,
   "sideEffects": false,
+  "author": "ShubhamVsCode",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Jonghakseo/chrome-extension-boilerplate-react-vite.git"
+    "url": "https://github.com/ShubhamVsCode/youtube-instant-navigation.git"
   },
+  "homepage": "https://github.com/ShubhamVsCode/youtube-instant-navigation#readme",
+  "keywords": [
+    "youtube",
+    "chrome-extension",
+    "keyboard-shortcuts",
+    "productivity",
+    "navigation"
+  ],
   "type": "module",
   "scripts": {
     "clean:bundle": "rimraf dist && turbo clean:bundle",
@@ -75,6 +84,7 @@
     "prettier-plugin-tailwindcss": "^0.6.11",
     "rimraf": "^6.0.1",
     "run-script-os": "^1.1.6",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",
     "tslib": "^2.8.1",
     "tsx": "^4.19.4",

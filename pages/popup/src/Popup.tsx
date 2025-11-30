@@ -5,11 +5,11 @@ import { ErrorDisplay, LoadingSpinner } from '@extension/ui';
 import type { HighlightStyle } from '@extension/storage';
 
 const PRESET_COLORS = [
+  { name: 'YouTube Red', value: '#FF0000' },
   { name: 'Gold', value: '#d4a853' },
   { name: 'Blue', value: '#3b82f6' },
   { name: 'Green', value: '#22c55e' },
   { name: 'Purple', value: '#a855f7' },
-  { name: 'Red', value: '#ef4444' },
   { name: 'Cyan', value: '#06b6d4' },
 ];
 
@@ -33,7 +33,7 @@ const Toggle = ({
     <span className="text-sm text-gray-300">{label}</span>
     <button
       onClick={() => onChange(!enabled)}
-      className={`relative h-6 w-11 rounded-full transition-colors ${enabled ? 'bg-[#d4a853]' : 'bg-[#4f4f4f]'}`}>
+      className={`relative h-6 w-11 rounded-full transition-colors ${enabled ? 'bg-[#FF0000]' : 'bg-[#4f4f4f]'}`}>
       <span
         className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`}
       />
@@ -45,9 +45,9 @@ const Popup = () => {
   const settings = useStorage(ytNavStorage);
 
   return (
-    <div className="min-w-[320px] bg-[#0f0f0f] p-4 text-white">
+    <div className="w-fit bg-[#0f0f0f] p-4 text-white">
       <header className="mb-4">
-        <h1 className="flex items-center gap-2 text-xl font-bold text-[#d4a853]">
+        <h1 className="flex items-center gap-2 text-xl font-bold text-[#FF0000]">
           <span className="text-2xl">▶</span>
           YT Navigation
         </h1>
@@ -113,7 +113,7 @@ const Popup = () => {
               <button
                 key={style.value}
                 onClick={() => ytNavStorage.setHighlightStyle(style.value)}
-                className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-all ${settings.highlightStyle === style.value ? 'bg-[#3f3f3f] ring-1 ring-[#d4a853]' : 'bg-[#1f1f1f] hover:bg-[#3f3f3f]'}`}>
+                className={`flex flex-col items-center gap-1 rounded-lg p-2 transition-all ${settings.highlightStyle === style.value ? 'bg-[#3f3f3f] ring-1 ring-[#FF0000]' : 'bg-[#1f1f1f] hover:bg-[#3f3f3f]'}`}>
                 <span className="text-lg" style={{ color: settings.highlightColor }}>
                   {style.icon}
                 </span>
