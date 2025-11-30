@@ -1,11 +1,11 @@
 {
   "extensionDescription": {
     "description": "Extension description",
-    "message": "Chrome extension boilerplate developed with Vite, React and Typescript"
+    "message": "Navigate YouTube with keyboard shortcuts: double-ESC for home, number keys to select videos, J/K to scroll"
   },
   "extensionName": {
     "description": "Extension name",
-    "message": "Chrome extension boilerplate"
+    "message": "YouTube Instant Navigation"
   },
   "toggleTheme": {
     "message": "Toggle theme"
